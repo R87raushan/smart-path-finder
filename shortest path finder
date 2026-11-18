@@ -1,0 +1,361 @@
+import tkinter as tk
+from tkinter import messagebox
+from collections import deque
+import heapq
+import random
+
+# ==============================
+# SMART PATH FINDER - DSA PROJECT
+# ==============================
+
+ROWS = 20
+COLS = 30
+CELL = 27
+
+START = (2, 2)
+END = (17, 27)
+
+WALL = 1
+WEIGHT = 5
+
+class SmartPathFinder:
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Smart Path Finder | DSA Project")
+        self.root.geometry("1050x750")
+        self.root.configure(bg="#101827")
+
+        self.walls = set()
+        self.weights = set()
+        self.grid_cells = {}
+
+        self.create_header()
+        self.create_controls()
+        self.create_grid()
+        self.create_footer()
+        self.draw_grid()
+
+    # HEADER
+    def create_header(self):
+        header = tk.Frame(self.root, bg="#101827")
+        header.pack(pady=12)
+
+        tk.Label(
+            header,
+            text="SMART PATH FINDER",
+            font=("Arial", 24, "bold"),
+            fg="#38bdf8",
+            bg="#101827"
+        ).pack()
+
+        tk.Label(
+            header,
+            text="DSA Project | BFS | DFS | Dijkstra",
+            font=("Arial", 11),
+            fg="white",
+            bg="#101827"
+        ).pack(pady=5)
+
+    # CONTROL BUTTONS
+    def create_controls(self):
+        panel = tk.Frame(self.root, bg="#101827")
+        panel.pack(pady=10)
+
+        buttons = [
+            ("BFS", self.run_bfs),
+            ("DFS", self.run_dfs),
+            ("DIJKSTRA", self.run_dijkstra),
+            ("Random Walls", self.random_walls),
+            ("Clear Path", self.clear_path),
+            ("Reset", self.reset_grid)
+        ]
+
+        for name, command in buttons:
+            tk.Button(
+                panel,
+                text=name,
+                command=command,
+                bg="#2563eb",
+                fg="white",
+                font=("Arial", 10, "bold"),
+                padx=12,
+                pady=8,
+                relief="flat",
+                cursor="hand2"
+            ).pack(side="left", padx=5)
+
+    # GRID CANVAS
+    def create_grid(self):
+        self.canvas = tk.Canvas(
+            self.root,
+            width=COLS * CELL,
+            height=ROWS * CELL,
+            bg="#1e293b",
+            highlightthickness=0
+        )
+        self.canvas.pack(pady=15)
+
+        self.canvas.bind("<Button-1>", self.add_wall)
+        self.canvas.bind("<Button-3>", self.add_weight)
+
+    # FOOTER
+    def create_footer(self):
+        self.status = tk.Label(
+            self.root,
+            text="Left Click: Wall | Right Click: Weighted Cell",
+            font=("Arial", 11),
+            fg="#38bdf8",
+            bg="#101827"
+        )
+        self.status.pack(pady=10)
+
+    # DRAW GRID
+    def draw_grid(self):
+        self.canvas.delete("all")
+        self.grid_cells.clear()
+
+        for r in range(ROWS):
+            for c in range(COLS):
+                x1 = c * CELL
+                y1 = r * CELL
+                x2 = x1 + CELL
+                y2 = y1 + CELL
+
+                color = "#334155"
+
+                if (r, c) in self.walls:
+                    color = "#ef4444"
+                elif (r, c) in self.weights:
+                    color = "#f59e0b"
+
+                if (r, c) == START:
+                    color = "#22c55e"
+                elif (r, c) == END:
+                    color = "#a855f7"
+
+                rect = self.canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    fill=color,
+                    outline="#64748b"
+                )
+
+                self.grid_cells[(r, c)] = rect
+
+    # CHANGE CELL COLOR
+    def paint(self, cell, color):
+        if cell in self.grid_cells:
+            self.canvas.itemconfig(
+                self.grid_cells[cell],
+                fill=color
+            )
+
+    # ADD WALL
+    def add_wall(self, event):
+        cell = (event.y // CELL, event.x // CELL)
+
+        if cell in (START, END):
+            return
+
+        if cell in self.walls:
+            self.walls.remove(cell)
+        else:
+            self.walls.add(cell)
+            self.weights.discard(cell)
+
+        self.draw_grid()
+
+    # ADD WEIGHTED CELL
+    def add_weight(self, event):
+        cell = (event.y // CELL, event.x // CELL)
+
+        if cell in (START, END) or cell in self.walls:
+            return
+
+        if cell in self.weights:
+            self.weights.remove(cell)
+        else:
+            self.weights.add(cell)
+
+        self.draw_grid()
+
+    # NEIGHBOURS
+    def get_neighbors(self, node):
+        r, c = node
+
+        directions = [
+            (0, 1), (0, -1),
+            (1, 0), (-1, 0)
+        ]
+
+        result = []
+
+        for dr, dc in directions:
+            nr = r + dr
+            nc = c + dc
+
+            if 0 <= nr < ROWS and 0 <= nc < COLS:
+                if (nr, nc) not in self.walls:
+                    result.append((nr, nc))
+
+        return result
+
+    # RECONSTRUCT PATH
+    def get_path(self, parent, current):
+        path = []
+
+        while current in parent:
+            path.append(current)
+            current = parent[current]
+
+        path.reverse()
+        return path
+
+    # BFS ALGORITHM
+    def bfs(self):
+        queue = deque([START])
+        visited = {START}
+        parent = {}
+
+        while queue:
+            current = queue.popleft()
+
+            if current == END:
+                return self.get_path(parent, END), visited
+
+            for neighbor in self.get_neighbors(current):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    parent[neighbor] = current
+                    queue.append(neighbor)
+
+        return [], visited
+
+    # DFS ALGORITHM
+    def dfs(self):
+        stack = [START]
+        visited = {START}
+        parent = {}
+
+        while stack:
+            current = stack.pop()
+
+            if current == END:
+                return self.get_path(parent, END), visited
+
+            for neighbor in self.get_neighbors(current):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    parent[neighbor] = current
+                    stack.append(neighbor)
+
+        return [], visited
+
+    # DIJKSTRA ALGORITHM
+    def dijkstra(self):
+        pq = [(0, START)]
+        distance = {START: 0}
+        visited = set()
+        parent = {}
+
+        while pq:
+            cost, current = heapq.heappop(pq)
+
+            if current in visited:
+                continue
+
+            visited.add(current)
+
+            if current == END:
+                return self.get_path(parent, END), visited
+
+            for neighbor in self.get_neighbors(current):
+                weight = WEIGHT if neighbor in self.weights else 1
+                new_cost = cost + weight
+
+                if new_cost < distance.get(neighbor, float("inf")):
+                    distance[neighbor] = new_cost
+                    parent[neighbor] = current
+
+                    heapq.heappush(
+                        pq, (new_cost, neighbor)
+                    )
+
+        return [], visited
+
+    # ANIMATE RESULT
+    def show_result(self, path, visited, algorithm):
+        self.draw_grid()
+
+        for cell in visited:
+            if cell not in (START, END):
+                self.paint(cell, "#0ea5e9")
+                self.root.update_idletasks()
+                self.root.update()
+
+        for cell in path:
+            if cell not in (START, END):
+                self.paint(cell, "#facc15")
+                self.root.update_idletasks()
+                self.root.update()
+
+        if path:
+            self.status.config(
+                text=f"{algorithm}: Path Found | "
+                     f"Steps: {len(path)} | "
+                     f"Visited: {len(visited)}"
+            )
+        else:
+            self.status.config(
+                text=f"{algorithm}: No Path Found!"
+            )
+
+    # RUN BFS
+    def run_bfs(self):
+        path, visited = self.bfs()
+        self.show_result(path, visited, "BFS")
+
+    # RUN DFS
+    def run_dfs(self):
+        path, visited = self.dfs()
+        self.show_result(path, visited, "DFS")
+
+    # RUN DIJKSTRA
+    def run_dijkstra(self):
+        path, visited = self.dijkstra()
+        self.show_result(path, visited, "Dijkstra")
+
+    # RANDOM WALLS
+    def random_walls(self):
+        self.walls.clear()
+        self.weights.clear()
+
+        for r in range(ROWS):
+            for c in range(COLS):
+                cell = (r, c)
+
+                if cell not in (START, END):
+                    if random.random() < 0.22:
+                        self.walls.add(cell)
+
+        self.draw_grid()
+        self.status.config(text="Random walls generated!")
+
+    
+    def clear_path(self):
+        self.draw_grid()
+        self.status.config(text="Path cleared!")
+
+    
+    def reset_grid(self):
+        self.walls.clear()
+        self.weights.clear()
+        self.draw_grid()
+        self.status.config(text="Grid reset successfully!")
+
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SmartPathFinder(root)
+    root.mainloop()
